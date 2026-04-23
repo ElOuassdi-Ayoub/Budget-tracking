@@ -45,8 +45,8 @@ export default function AnalyticsPage() {
         </div>
 
         <div className="bg-white rounded-xl border border-slate-100 p-5">
-          <h2 className="text-sm font-medium text-slate-700 mb-4">Spending by Category</h2>
-          <SpendingByCategoryChart data={data.spendingByCategory} />
+          <h2 className="text-sm font-medium text-slate-700 mb-4">Monthly Net Savings</h2>
+          <SpendingByCategoryChart data={data.netPerMonth} />
         </div>
 
         <div className="bg-white rounded-xl border border-slate-100 p-5">
