@@ -18,6 +18,8 @@ const presets = [
   { name: "Travel", color: "#A2D9CE", icon: "✈️" },
   { name: "Personal Care", color: "#FADBD8", icon: "🧴" },
   { name: "Subscriptions", color: "#D5DBDB", icon: "📱" },
+  { name: "Delivery", color: "#FDEBD0", icon: "🛵" },
+  { name: "Gifts", color: "#D7BDE2", icon: "🎁" },
   { name: "Other", color: "#E8DAEF", icon: "📌" },
 ];
 
