@@ -117,7 +117,7 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
             <div key={expense.id} className="flex items-center gap-3 bg-white border border-slate-100 rounded-xl px-4 py-3 group">
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-slate-800 truncate">{expense.label}</p>
-                <p className="text-xs text-slate-400">{new Date(expense.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}{expense.note ? ` · ${expense.note}` : ""}</p>
+                <p className="text-xs text-slate-400">{new Date(expense.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}{expense.note ? ` · ${expense.note}` : ""}</p>
               </div>
               <span className="text-sm font-semibold text-slate-700 shrink-0">{formatCurrency(expense.amount)}</span>
               <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-all">
