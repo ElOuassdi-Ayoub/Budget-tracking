@@ -57,3 +57,22 @@ export interface AnalyticsPayload {
   incomeTrends: Record<string, number | string>[];
   topCategories: TopCategory[];
 }
+
+export interface TripExpenseDTO {
+  id: string;
+  tripId: string;
+  label: string;
+  amount: number;
+  date: string;
+  note?: string | null;
+  createdAt: string;
+}
+
+export interface TripDTO {
+  id: string;
+  name: string;
+  coverImage?: string | null;
+  totalSpent: number;
+  expenseCount: number;
+  createdAt: string;
+}
