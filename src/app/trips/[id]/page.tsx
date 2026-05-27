@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, use, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Plus, Trash2, Pencil } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Pencil, TrendingUp, CalendarDays, Zap } from "lucide-react";
 import { toast } from "sonner";
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
+} from "recharts";
 import { Button } from "@/components/ui/button";
 import { AddTripExpenseDialog } from "@/components/trips/AddTripExpenseDialog";
 import { formatCurrency } from "@/lib/utils";
@@ -11,6 +14,14 @@ import type { TripDTO, TripExpenseDTO } from "@/types";
 
 interface TripDetail extends TripDTO {
   expenses: TripExpenseDTO[];
+}
+
+function fmtDate(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
+}
+
+function fmtDateShort(iso: string) {
+  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
 }
 
 export default function TripDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -27,16 +38,38 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
       .then((d) => { setTrip(d); setLoading(false); });
   }, [id]);
 
+  const stats = useMemo(() => {
+    if (!trip || !trip.expenses.length) return null;
+    const days = new Set(trip.expenses.map((e) => e.date.slice(0, 10))).size;
+    const biggest = trip.expenses.reduce((max, e) => e.amount > max.amount ? e : max, trip.expenses[0]);
+    const dailyMap = new Map<string, number>();
+    for (const e of trip.expenses) {
+      const day = e.date.slice(0, 10);
+      dailyMap.set(day, (dailyMap.get(day) ?? 0) + e.amount);
+    }
+    const dailyData = [...dailyMap.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, total]) => ({ date: fmtDateShort(date + "T00:00:00Z"), total }));
+
+    const grouped = new Map<string, TripExpenseDTO[]>();
+    for (const e of trip.expenses) {
+      const day = e.date.slice(0, 10);
+      if (!grouped.has(day)) grouped.set(day, []);
+      grouped.get(day)!.push(e);
+    }
+    const groupedByDate = [...grouped.entries()]
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([day, expenses]) => ({ day, label: fmtDateShort(day + "T00:00:00Z"), expenses }));
+
+    return { days, biggest, dailyData, groupedByDate, avgPerDay: trip.totalSpent / days };
+  }, [trip]);
+
   function handleExpenseSaved(expense: TripExpenseDTO) {
     setTrip((prev) => {
       if (!prev) return prev;
       if (editingExpense) {
         const diff = expense.amount - editingExpense.amount;
-        return {
-          ...prev,
-          totalSpent: prev.totalSpent + diff,
-          expenses: prev.expenses.map((e) => (e.id === expense.id ? expense : e)),
-        };
+        return { ...prev, totalSpent: prev.totalSpent + diff, expenses: prev.expenses.map((e) => e.id === expense.id ? expense : e) };
       }
       return { ...prev, expenses: [expense, ...prev.expenses], totalSpent: prev.totalSpent + expense.amount, expenseCount: prev.expenseCount + 1 };
     });
@@ -46,9 +79,7 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
   async function handleDeleteExpense(expenseId: string, amount: number) {
     await fetch(`/api/trips/${id}/expenses/${expenseId}`, { method: "DELETE" });
     setTrip((prev) =>
-      prev
-        ? { ...prev, expenses: prev.expenses.filter((e) => e.id !== expenseId), totalSpent: prev.totalSpent - amount, expenseCount: prev.expenseCount - 1 }
-        : prev
+      prev ? { ...prev, expenses: prev.expenses.filter((e) => e.id !== expenseId), totalSpent: prev.totalSpent - amount, expenseCount: prev.expenseCount - 1 } : prev
     );
     toast.success("Expense removed");
   }
@@ -62,11 +93,12 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
 
   if (loading) {
     return (
-      <div className="p-6 max-w-2xl mx-auto w-full">
-        <div className="h-48 rounded-2xl bg-slate-100 animate-pulse mb-6" />
-        <div className="space-y-3">
-          {[...Array(4)].map((_, i) => <div key={i} className="h-14 rounded-xl bg-slate-100 animate-pulse" />)}
+      <div className="p-6 max-w-4xl mx-auto w-full space-y-4">
+        <div className="h-56 rounded-2xl bg-slate-100 animate-pulse" />
+        <div className="grid grid-cols-3 gap-4">
+          {[...Array(3)].map((_, i) => <div key={i} className="h-20 rounded-xl bg-slate-100 animate-pulse" />)}
         </div>
+        <div className="h-48 rounded-xl bg-slate-100 animate-pulse" />
       </div>
     );
   }
@@ -74,7 +106,7 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
   if (!trip) return <div className="p-6 text-slate-500">Trip not found.</div>;
 
   return (
-    <div className="p-6 max-w-2xl mx-auto w-full">
+    <div className="p-6 max-w-4xl mx-auto w-full">
       {/* Header */}
       <div className="flex items-center gap-3 mb-5">
         <button onClick={() => router.push("/trips")} className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 transition-colors">
@@ -86,57 +118,154 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
         </button>
       </div>
 
-      {/* Cover + summary */}
-      <div className="relative rounded-2xl overflow-hidden h-48 bg-slate-100 mb-6">
-        {trip.coverImage ? (
-          <img src={trip.coverImage} alt={trip.name} className="w-full h-full object-cover" />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center text-5xl">✈️</div>
-        )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent" />
-        <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between">
+      {/* Cover banner */}
+      <div className="relative rounded-2xl overflow-hidden h-56 bg-slate-100 mb-5">
+        {trip.coverImage
+          ? <img src={trip.coverImage} alt={trip.name} className="w-full h-full object-cover" />
+          : <div className="w-full h-full flex items-center justify-center text-6xl">✈️</div>
+        }
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+        <div className="absolute bottom-4 left-5 right-5 flex items-end justify-between">
           <div>
-            <p className="text-white/70 text-xs mb-0.5">{trip.expenseCount} expense{trip.expenseCount !== 1 ? "s" : ""}</p>
-            <p className="text-white text-2xl font-bold">{formatCurrency(trip.totalSpent)}</p>
+            <p className="text-white/60 text-xs mb-0.5">{trip.expenseCount} expense{trip.expenseCount !== 1 ? "s" : ""}</p>
+            <p className="text-white text-3xl font-bold tracking-tight">{formatCurrency(trip.totalSpent)}</p>
           </div>
-          <Button size="sm" onClick={() => setAddOpen(true)} className="bg-white text-slate-800 hover:bg-slate-100 gap-1.5">
+          <Button size="sm" onClick={() => setAddOpen(true)} className="bg-white text-slate-800 hover:bg-slate-100 gap-1.5 shadow-md">
             <Plus className="w-3.5 h-3.5" />
             Add expense
           </Button>
         </div>
       </div>
 
-      {/* Expense list */}
       {trip.expenses.length === 0 ? (
-        <div className="text-center py-16 text-slate-400 text-sm">
-          No expenses yet. Add your first one!
-        </div>
+        <div className="text-center py-24 text-slate-400 text-sm">No expenses yet. Add your first one!</div>
       ) : (
-        <div className="flex flex-col gap-2">
-          {trip.expenses.map((expense) => (
-            <div key={expense.id} className="flex items-center gap-3 bg-white border border-slate-100 rounded-xl px-4 py-3 group">
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-slate-800 truncate">{expense.label}</p>
-                <p className="text-xs text-slate-400">{new Date(expense.date).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}{expense.note ? ` · ${expense.note}` : ""}</p>
+        <>
+          {/* Stat cards */}
+          {stats && (
+            <div className="grid grid-cols-3 gap-3 mb-5">
+              <div className="bg-white border border-slate-100 rounded-2xl p-4 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
+                  <TrendingUp className="w-4 h-4 text-indigo-500" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-400">Avg / day</p>
+                  <p className="text-sm font-bold text-slate-800 truncate">{formatCurrency(stats.avgPerDay)}</p>
+                </div>
               </div>
-              <span className="text-sm font-semibold text-slate-700 shrink-0">{formatCurrency(expense.amount)}</span>
-              <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-all">
-                <button
-                  onClick={() => { setEditingExpense(expense); setAddOpen(true); }}
-                  className="p-1 rounded-lg hover:bg-slate-100 text-slate-300 hover:text-slate-500"
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                </button>
-                <button
-                  onClick={() => handleDeleteExpense(expense.id, expense.amount)}
-                  className="p-1 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-400"
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
+              <div className="bg-white border border-slate-100 rounded-2xl p-4 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                  <CalendarDays className="w-4 h-4 text-emerald-500" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-400">Days</p>
+                  <p className="text-sm font-bold text-slate-800">{stats.days}</p>
+                </div>
+              </div>
+              <div className="bg-white border border-slate-100 rounded-2xl p-4 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-rose-50 flex items-center justify-center shrink-0">
+                  <Zap className="w-4 h-4 text-rose-400" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-400">Biggest</p>
+                  <p className="text-sm font-bold text-slate-800 truncate">{formatCurrency(stats.biggest.amount)}</p>
+                </div>
               </div>
             </div>
-          ))}
-        </div>
+          )}
+
+          {/* Charts row */}
+          {stats && stats.dailyData.length > 1 && (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
+              {/* Daily spending bar chart */}
+              <div className="bg-white border border-slate-100 rounded-2xl p-5">
+                <p className="text-sm font-medium text-slate-700 mb-4">Daily Spending</p>
+                <ResponsiveContainer width="100%" height={180}>
+                  <BarChart data={stats.dailyData} margin={{ top: 0, right: 0, bottom: 0, left: 0 }} barSize={24}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" vertical={false} />
+                    <XAxis dataKey="date" tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fontSize: 10, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v / 1000).toFixed(0)}k`} width={36} />
+                    <Tooltip
+                      formatter={(v: number) => [formatCurrency(v), "Spent"]}
+                      contentStyle={{ background: "white", border: "1px solid #e2e8f0", borderRadius: 8, fontSize: 12 }}
+                      wrapperStyle={{ zIndex: 50 }}
+                    />
+                    <Bar dataKey="total" radius={[6, 6, 0, 0]}>
+                      {stats.dailyData.map((_, i) => (
+                        <Cell key={i} fill={i === stats.dailyData.reduce((mi, d, idx) => d.total > stats.dailyData[mi].total ? idx : mi, 0) ? "#818cf8" : "#c7d2fe"} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+
+              {/* Top expenses breakdown */}
+              <div className="bg-white border border-slate-100 rounded-2xl p-5">
+                <p className="text-sm font-medium text-slate-700 mb-4">Top Expenses</p>
+                <div className="flex flex-col gap-3">
+                  {[...trip.expenses]
+                    .sort((a, b) => b.amount - a.amount)
+                    .slice(0, 5)
+                    .map((e) => {
+                      const pct = trip.totalSpent > 0 ? (e.amount / trip.totalSpent) * 100 : 0;
+                      return (
+                        <div key={e.id}>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs text-slate-600 truncate max-w-[60%]">{e.label}</span>
+                            <span className="text-xs font-semibold text-slate-700">{formatCurrency(e.amount)}</span>
+                          </div>
+                          <div className="h-1.5 bg-slate-100 rounded-full overflow-hidden">
+                            <div className="h-full bg-indigo-400 rounded-full transition-all" style={{ width: `${pct}%` }} />
+                          </div>
+                        </div>
+                      );
+                    })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Expense list grouped by date */}
+          <div className="flex flex-col gap-5">
+            {stats?.groupedByDate.map(({ day, label, expenses }) => (
+              <div key={day}>
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{label}</span>
+                  <span className="text-xs text-slate-300">·</span>
+                  <span className="text-xs text-slate-400">{formatCurrency(expenses.reduce((s, e) => s + e.amount, 0))}</span>
+                </div>
+                <div className="flex flex-col gap-1.5">
+                  {expenses.map((expense) => {
+                    const pct = trip.totalSpent > 0 ? (expense.amount / trip.totalSpent) * 100 : 0;
+                    return (
+                      <div key={expense.id} className="group bg-white border border-slate-100 rounded-xl px-4 py-3 hover:border-slate-200 transition-colors">
+                        <div className="flex items-center gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-slate-800 truncate">{expense.label}</p>
+                            {expense.note && <p className="text-xs text-slate-400 truncate">{expense.note}</p>}
+                          </div>
+                          <span className="text-sm font-semibold text-slate-700 shrink-0">{formatCurrency(expense.amount)}</span>
+                          <span className="text-xs text-slate-300 shrink-0 w-10 text-right">{pct.toFixed(0)}%</span>
+                          <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-all">
+                            <button onClick={() => { setEditingExpense(expense); setAddOpen(true); }} className="p-1 rounded-lg hover:bg-slate-100 text-slate-300 hover:text-slate-500">
+                              <Pencil className="w-3.5 h-3.5" />
+                            </button>
+                            <button onClick={() => handleDeleteExpense(expense.id, expense.amount)} className="p-1 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-400">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                        <div className="mt-2 h-1 bg-slate-50 rounded-full overflow-hidden">
+                          <div className="h-full bg-indigo-200 rounded-full" style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
       )}
 
       <AddTripExpenseDialog
