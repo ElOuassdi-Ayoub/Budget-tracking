@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect, use, useMemo } from "react";
+import { useState, useEffect, use, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Plus, Trash2, Pencil, TrendingUp, CalendarDays, Zap } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Pencil, TrendingUp, CalendarDays, Zap, Camera } from "lucide-react";
 import { toast } from "sonner";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
@@ -31,6 +31,27 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
   const [loading, setLoading] = useState(true);
   const [addOpen, setAddOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<TripExpenseDTO | null>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement>(null);
+
+  async function handleCoverChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setUploadingCover(true);
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const coverImage = ev.target?.result as string;
+      await fetch(`/api/trips/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ coverImage }),
+      });
+      setTrip((prev) => prev ? { ...prev, coverImage } : prev);
+      setUploadingCover(false);
+      toast.success("Cover photo updated");
+    };
+    reader.readAsDataURL(file);
+  }
 
   useEffect(() => {
     fetch(`/api/trips/${id}`)
@@ -119,12 +140,21 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
       </div>
 
       {/* Cover banner */}
-      <div className="relative rounded-2xl overflow-hidden h-56 bg-slate-100 mb-5">
+      <div className="relative rounded-2xl overflow-hidden h-56 bg-slate-100 mb-5 group/cover">
         {trip.coverImage
           ? <img src={trip.coverImage} alt={trip.name} className="w-full h-full object-cover" />
           : <div className="w-full h-full flex items-center justify-center text-6xl">✈️</div>
         }
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/10 to-transparent" />
+        <button
+          onClick={() => coverInputRef.current?.click()}
+          disabled={uploadingCover}
+          className="absolute top-3 right-3 opacity-0 group-hover/cover:opacity-100 transition-opacity bg-black/40 hover:bg-black/60 text-white rounded-xl px-3 py-1.5 flex items-center gap-1.5 text-xs font-medium backdrop-blur-sm"
+        >
+          <Camera className="w-3.5 h-3.5" />
+          {uploadingCover ? "Saving…" : "Change photo"}
+        </button>
+        <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleCoverChange} />
         <div className="absolute bottom-4 left-5 right-5 flex items-end justify-between">
           <div>
             <p className="text-white/60 text-xs mb-0.5">{trip.expenseCount} expense{trip.expenseCount !== 1 ? "s" : ""}</p>
