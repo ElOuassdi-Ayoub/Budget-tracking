@@ -28,8 +28,13 @@ export function TripCard({ trip }: Props) {
       </div>
 
       <div className="px-4 py-3 flex items-center justify-between">
-        <span className="text-xs text-slate-400">{trip.expenseCount} expense{trip.expenseCount !== 1 ? "s" : ""}</span>
-        <span className="text-sm font-semibold text-slate-800">{formatCurrency(trip.totalSpent)}</span>
+        <span className="text-xs text-slate-400">{trip.expenseCount} entr{trip.expenseCount !== 1 ? "ies" : "y"}</span>
+        <div className="text-right">
+          <span className="text-sm font-semibold text-slate-800">{formatCurrency(trip.netCost)}</span>
+          {trip.totalReceived > 0 && (
+            <p className="text-xs text-emerald-500">+{formatCurrency(trip.totalReceived)} received</p>
+          )}
+        </div>
       </div>
     </Link>
   );

@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 import type { TripExpenseDTO } from "@/types";
 
 interface Props {
@@ -17,6 +18,7 @@ interface Props {
 }
 
 export function AddTripExpenseDialog({ open, onOpenChange, tripId, onSaved, editing }: Props) {
+  const [type, setType] = useState<"expense" | "received">("expense");
   const [label, setLabel] = useState("");
   const [amount, setAmount] = useState("");
   const [date, setDate] = useState("");
@@ -28,12 +30,13 @@ export function AddTripExpenseDialog({ open, onOpenChange, tripId, onSaved, edit
   useEffect(() => {
     if (open) {
       if (editing) {
+        setType(editing.type);
         setLabel(editing.label);
         setAmount(editing.amount.toString());
         setDate(editing.date.slice(0, 10));
         setNote(editing.note ?? "");
       } else {
-        setLabel(""); setAmount(""); setNote("");
+        setType("expense"); setLabel(""); setAmount(""); setNote("");
         setDate(new Date().toISOString().slice(0, 10));
       }
     }
@@ -48,12 +51,12 @@ export function AddTripExpenseDialog({ open, onOpenChange, tripId, onSaved, edit
         ? await fetch(`/api/trips/${tripId}/expenses/${editing!.id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ label, amount, date, note }),
+            body: JSON.stringify({ label, amount, type, date, note }),
           })
         : await fetch(`/api/trips/${tripId}/expenses`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ label, amount, date, note }),
+            body: JSON.stringify({ label, amount, type, date, note }),
           });
       if (!res.ok) {
         const err = await res.json();
@@ -63,7 +66,7 @@ export function AddTripExpenseDialog({ open, onOpenChange, tripId, onSaved, edit
       const expense = await res.json();
       onSaved(expense);
       onOpenChange(false);
-      toast.success(isEdit ? "Expense updated" : "Expense added");
+      toast.success(isEdit ? "Entry updated" : type === "received" ? "Income added" : "Expense added");
     } finally {
       setLoading(false);
     }
@@ -73,12 +76,42 @@ export function AddTripExpenseDialog({ open, onOpenChange, tripId, onSaved, edit
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
-          <DialogTitle>{isEdit ? "Edit Expense" : "Add Expense"}</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit Entry" : "Add Entry"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="flex flex-col gap-4 py-2">
+
+          {/* Type toggle */}
+          <div className="flex rounded-xl bg-slate-100 p-1 gap-1">
+            <button
+              type="button"
+              onClick={() => setType("expense")}
+              className={cn(
+                "flex-1 rounded-lg py-1.5 text-sm font-medium transition-colors",
+                type === "expense" ? "bg-white text-slate-800 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              Expense
+            </button>
+            <button
+              type="button"
+              onClick={() => setType("received")}
+              className={cn(
+                "flex-1 rounded-lg py-1.5 text-sm font-medium transition-colors",
+                type === "received" ? "bg-white text-emerald-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
+              )}
+            >
+              Received
+            </button>
+          </div>
+
           <div className="flex flex-col gap-1.5">
             <Label>Description</Label>
-            <Input value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. Hotel, Flight, Dinner…" autoFocus />
+            <Input
+              value={label}
+              onChange={(e) => setLabel(e.target.value)}
+              placeholder={type === "received" ? "e.g. Gift, Refund, Cash back…" : "e.g. Hotel, Flight, Dinner…"}
+              autoFocus
+            />
           </div>
 
           <div className="flex flex-col gap-1.5">
@@ -98,8 +131,12 @@ export function AddTripExpenseDialog({ open, onOpenChange, tripId, onSaved, edit
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>Cancel</Button>
-            <Button type="submit" disabled={loading || !label.trim() || !amount || !date}>
-              {loading ? "Saving…" : isEdit ? "Save" : "Add"}
+            <Button
+              type="submit"
+              disabled={loading || !label.trim() || !amount || !date}
+              className={type === "received" ? "bg-emerald-600 hover:bg-emerald-700 text-white" : ""}
+            >
+              {loading ? "Saving…" : isEdit ? "Save" : type === "received" ? "Add Income" : "Add Expense"}
             </Button>
           </DialogFooter>
         </form>

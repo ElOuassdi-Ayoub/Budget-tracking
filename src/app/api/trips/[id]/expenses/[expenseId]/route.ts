@@ -6,13 +6,14 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; expenseId: string }> }
 ) {
   const { expenseId } = await params;
-  const { label, amount, date, note } = await request.json();
+  const { label, amount, type, date, note } = await request.json();
 
   const expense = await prisma.tripExpense.update({
     where: { id: expenseId },
     data: {
       ...(label !== undefined && { label: label.trim() }),
       ...(amount !== undefined && { amount: parseFloat(amount) }),
+      ...(type !== undefined && { type: type === "received" ? "received" : "expense" }),
       ...(date !== undefined && { date: new Date(date) }),
       ...(note !== undefined && { note }),
     },
@@ -23,6 +24,7 @@ export async function PATCH(
     tripId: expense.tripId,
     label: expense.label,
     amount: expense.amount,
+    type: expense.type,
     date: expense.date.toISOString(),
     note: expense.note,
     createdAt: expense.createdAt.toISOString(),

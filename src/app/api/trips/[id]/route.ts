@@ -9,11 +9,16 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   });
   if (!trip) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
+  const totalSpent = trip.expenses.filter((e) => e.type === "expense").reduce((s, e) => s + e.amount, 0);
+  const totalReceived = trip.expenses.filter((e) => e.type === "received").reduce((s, e) => s + e.amount, 0);
+
   return NextResponse.json({
     id: trip.id,
     name: trip.name,
     coverImage: trip.coverImage,
-    totalSpent: trip.expenses.reduce((s, e) => s + e.amount, 0),
+    totalSpent,
+    totalReceived,
+    netCost: totalSpent - totalReceived,
     expenseCount: trip.expenses.length,
     createdAt: trip.createdAt.toISOString(),
     expenses: trip.expenses.map((e) => ({
@@ -21,6 +26,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       tripId: e.tripId,
       label: e.label,
       amount: e.amount,
+      type: e.type,
       date: e.date.toISOString(),
       note: e.note,
       createdAt: e.createdAt.toISOString(),

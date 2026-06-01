@@ -63,6 +63,7 @@ export interface TripExpenseDTO {
   tripId: string;
   label: string;
   amount: number;
+  type: "expense" | "received";
   date: string;
   note?: string | null;
   createdAt: string;
@@ -73,6 +74,8 @@ export interface TripDTO {
   name: string;
   coverImage?: string | null;
   totalSpent: number;
+  totalReceived: number;
+  netCost: number;
   expenseCount: number;
   createdAt: string;
 }

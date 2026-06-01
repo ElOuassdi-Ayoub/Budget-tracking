@@ -57,6 +57,7 @@ model TripExpense {
   trip      Trip     @relation(fields: [tripId], references: [id], onDelete: Cascade)
   label     String
   amount    Float
+  type      String   @default("expense")
   date      DateTime
   note      String?
   createdAt DateTime @default(now())

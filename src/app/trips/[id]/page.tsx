@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Plus, Trash2, Pencil, TrendingUp, CalendarDays, Zap, Camera } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Pencil, TrendingUp, CalendarDays, Zap, Camera, ArrowDownLeft } from "lucide-react";
 import { toast } from "sonner";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
@@ -16,12 +16,14 @@ interface TripDetail extends TripDTO {
   expenses: TripExpenseDTO[];
 }
 
-function fmtDate(iso: string) {
-  return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" });
-}
-
 function fmtDateShort(iso: string) {
   return new Date(iso).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
+}
+
+function recalc(expenses: TripExpenseDTO[]) {
+  const totalSpent = expenses.filter((e) => e.type === "expense").reduce((s, e) => s + e.amount, 0);
+  const totalReceived = expenses.filter((e) => e.type === "received").reduce((s, e) => s + e.amount, 0);
+  return { totalSpent, totalReceived, netCost: totalSpent - totalReceived };
 }
 
 export default function TripDetailPage({ params }: { params: Promise<{ id: string }> }) {
@@ -34,6 +36,12 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
   const [uploadingCover, setUploadingCover] = useState(false);
   const coverInputRef = useRef<HTMLInputElement>(null);
 
+  useEffect(() => {
+    fetch(`/api/trips/${id}`)
+      .then((r) => r.json())
+      .then((d) => { setTrip(d); setLoading(false); });
+  }, [id]);
+
   async function handleCoverChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -41,11 +49,7 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
     const reader = new FileReader();
     reader.onload = async (ev) => {
       const coverImage = ev.target?.result as string;
-      await fetch(`/api/trips/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ coverImage }),
-      });
+      await fetch(`/api/trips/${id}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ coverImage }) });
       setTrip((prev) => prev ? { ...prev, coverImage } : prev);
       setUploadingCover(false);
       toast.success("Cover photo updated");
@@ -53,56 +57,30 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
     reader.readAsDataURL(file);
   }
 
-  useEffect(() => {
-    fetch(`/api/trips/${id}`)
-      .then((r) => r.json())
-      .then((d) => { setTrip(d); setLoading(false); });
-  }, [id]);
-
-  const stats = useMemo(() => {
-    if (!trip || !trip.expenses.length) return null;
-    const days = new Set(trip.expenses.map((e) => e.date.slice(0, 10))).size;
-    const biggest = trip.expenses.reduce((max, e) => e.amount > max.amount ? e : max, trip.expenses[0]);
-    const dailyMap = new Map<string, number>();
-    for (const e of trip.expenses) {
-      const day = e.date.slice(0, 10);
-      dailyMap.set(day, (dailyMap.get(day) ?? 0) + e.amount);
-    }
-    const dailyData = [...dailyMap.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([date, total]) => ({ date: fmtDateShort(date + "T00:00:00Z"), total }));
-
-    const grouped = new Map<string, TripExpenseDTO[]>();
-    for (const e of trip.expenses) {
-      const day = e.date.slice(0, 10);
-      if (!grouped.has(day)) grouped.set(day, []);
-      grouped.get(day)!.push(e);
-    }
-    const groupedByDate = [...grouped.entries()]
-      .sort(([a], [b]) => b.localeCompare(a))
-      .map(([day, expenses]) => ({ day, label: fmtDateShort(day + "T00:00:00Z"), expenses }));
-
-    return { days, biggest, dailyData, groupedByDate, avgPerDay: trip.totalSpent / days };
-  }, [trip]);
-
   function handleExpenseSaved(expense: TripExpenseDTO) {
     setTrip((prev) => {
       if (!prev) return prev;
-      if (editingExpense) {
-        const diff = expense.amount - editingExpense.amount;
-        return { ...prev, totalSpent: prev.totalSpent + diff, expenses: prev.expenses.map((e) => e.id === expense.id ? expense : e) };
-      }
-      return { ...prev, expenses: [expense, ...prev.expenses], totalSpent: prev.totalSpent + expense.amount, expenseCount: prev.expenseCount + 1 };
+      const newExpenses = editingExpense
+        ? prev.expenses.map((e) => e.id === expense.id ? expense : e)
+        : [expense, ...prev.expenses];
+      return {
+        ...prev,
+        expenses: newExpenses,
+        ...recalc(newExpenses),
+        expenseCount: editingExpense ? prev.expenseCount : prev.expenseCount + 1,
+      };
     });
     setEditingExpense(null);
   }
 
-  async function handleDeleteExpense(expenseId: string, amount: number) {
+  async function handleDeleteExpense(expenseId: string) {
     await fetch(`/api/trips/${id}/expenses/${expenseId}`, { method: "DELETE" });
-    setTrip((prev) =>
-      prev ? { ...prev, expenses: prev.expenses.filter((e) => e.id !== expenseId), totalSpent: prev.totalSpent - amount, expenseCount: prev.expenseCount - 1 } : prev
-    );
-    toast.success("Expense removed");
+    setTrip((prev) => {
+      if (!prev) return prev;
+      const newExpenses = prev.expenses.filter((e) => e.id !== expenseId);
+      return { ...prev, expenses: newExpenses, ...recalc(newExpenses), expenseCount: prev.expenseCount - 1 };
+    });
+    toast.success("Entry removed");
   }
 
   async function handleDeleteTrip() {
@@ -111,6 +89,42 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
     toast.success("Trip deleted");
     router.push("/trips");
   }
+
+  const stats = useMemo(() => {
+    if (!trip || !trip.expenses.length) return null;
+    const onlyExpenses = trip.expenses.filter((e) => e.type === "expense");
+    const days = new Set(trip.expenses.map((e) => e.date.slice(0, 10))).size;
+    const biggest = onlyExpenses.length ? onlyExpenses.reduce((max, e) => e.amount > max.amount ? e : max, onlyExpenses[0]) : null;
+
+    // Daily chart: expenses only
+    const dailyMap = new Map<string, number>();
+    for (const e of onlyExpenses) {
+      const day = e.date.slice(0, 10);
+      dailyMap.set(day, (dailyMap.get(day) ?? 0) + e.amount);
+    }
+    const dailyData = [...dailyMap.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([date, total]) => ({ date: fmtDateShort(date + "T00:00:00Z"), total }));
+
+    // Group all entries by date for the list
+    const grouped = new Map<string, TripExpenseDTO[]>();
+    for (const e of trip.expenses) {
+      const day = e.date.slice(0, 10);
+      if (!grouped.has(day)) grouped.set(day, []);
+      grouped.get(day)!.push(e);
+    }
+    const groupedByDate = [...grouped.entries()]
+      .sort(([a], [b]) => b.localeCompare(a))
+      .map(([day, expenses]) => ({
+        day,
+        label: fmtDateShort(day + "T00:00:00Z"),
+        expenses,
+        dayNet: expenses.filter(e => e.type === "expense").reduce((s, e) => s + e.amount, 0)
+                - expenses.filter(e => e.type === "received").reduce((s, e) => s + e.amount, 0),
+      }));
+
+    return { days, biggest, dailyData, groupedByDate, avgPerDay: trip.totalSpent / days };
+  }, [trip]);
 
   if (loading) {
     return (
@@ -157,23 +171,28 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
         <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleCoverChange} />
         <div className="absolute bottom-4 left-5 right-5 flex items-end justify-between">
           <div>
-            <p className="text-white/60 text-xs mb-0.5">{trip.expenseCount} expense{trip.expenseCount !== 1 ? "s" : ""}</p>
-            <p className="text-white text-3xl font-bold tracking-tight">{formatCurrency(trip.totalSpent)}</p>
+            <p className="text-white/60 text-xs mb-0.5">{trip.expenseCount} entr{trip.expenseCount !== 1 ? "ies" : "y"}</p>
+            <p className="text-white text-3xl font-bold tracking-tight">{formatCurrency(trip.netCost)}</p>
+            {trip.totalReceived > 0 && (
+              <p className="text-white/60 text-xs mt-0.5">
+                {formatCurrency(trip.totalSpent)} spent · <span className="text-emerald-300">{formatCurrency(trip.totalReceived)} received</span>
+              </p>
+            )}
           </div>
           <Button size="sm" onClick={() => setAddOpen(true)} className="bg-white text-slate-800 hover:bg-slate-100 gap-1.5 shadow-md">
             <Plus className="w-3.5 h-3.5" />
-            Add expense
+            Add
           </Button>
         </div>
       </div>
 
       {trip.expenses.length === 0 ? (
-        <div className="text-center py-24 text-slate-400 text-sm">No expenses yet. Add your first one!</div>
+        <div className="text-center py-24 text-slate-400 text-sm">No entries yet. Add your first expense or income!</div>
       ) : (
         <>
           {/* Stat cards */}
           {stats && (
-            <div className="grid grid-cols-3 gap-3 mb-5">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
               <div className="bg-white border border-slate-100 rounded-2xl p-4 flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-indigo-50 flex items-center justify-center shrink-0">
                   <TrendingUp className="w-4 h-4 text-indigo-500" />
@@ -184,8 +203,8 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
                 </div>
               </div>
               <div className="bg-white border border-slate-100 rounded-2xl p-4 flex items-center gap-3">
-                <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
-                  <CalendarDays className="w-4 h-4 text-emerald-500" />
+                <div className="w-9 h-9 rounded-xl bg-slate-50 flex items-center justify-center shrink-0">
+                  <CalendarDays className="w-4 h-4 text-slate-400" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs text-slate-400">Days</p>
@@ -198,7 +217,16 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
                 </div>
                 <div className="min-w-0">
                   <p className="text-xs text-slate-400">Biggest</p>
-                  <p className="text-sm font-bold text-slate-800 truncate">{formatCurrency(stats.biggest.amount)}</p>
+                  <p className="text-sm font-bold text-slate-800 truncate">{stats.biggest ? formatCurrency(stats.biggest.amount) : "—"}</p>
+                </div>
+              </div>
+              <div className="bg-white border border-slate-100 rounded-2xl p-4 flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                  <ArrowDownLeft className="w-4 h-4 text-emerald-500" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs text-slate-400">Received</p>
+                  <p className="text-sm font-bold text-emerald-600 truncate">{formatCurrency(trip.totalReceived)}</p>
                 </div>
               </div>
             </div>
@@ -207,7 +235,6 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
           {/* Charts row */}
           {stats && stats.dailyData.length > 1 && (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-5">
-              {/* Daily spending bar chart */}
               <div className="bg-white border border-slate-100 rounded-2xl p-5">
                 <p className="text-sm font-medium text-slate-700 mb-4">Daily Spending</p>
                 <ResponsiveContainer width="100%" height={180}>
@@ -229,11 +256,11 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
                 </ResponsiveContainer>
               </div>
 
-              {/* Top expenses breakdown */}
               <div className="bg-white border border-slate-100 rounded-2xl p-5">
                 <p className="text-sm font-medium text-slate-700 mb-4">Top Expenses</p>
                 <div className="flex flex-col gap-3">
                   {[...trip.expenses]
+                    .filter((e) => e.type === "expense")
                     .sort((a, b) => b.amount - a.amount)
                     .slice(0, 5)
                     .map((e) => {
@@ -257,37 +284,48 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
 
           {/* Expense list grouped by date */}
           <div className="flex flex-col gap-5">
-            {stats?.groupedByDate.map(({ day, label, expenses }) => (
+            {stats?.groupedByDate.map(({ day, label, expenses, dayNet }) => (
               <div key={day}>
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xs font-semibold text-slate-400 uppercase tracking-wide">{label}</span>
                   <span className="text-xs text-slate-300">·</span>
-                  <span className="text-xs text-slate-400">{formatCurrency(expenses.reduce((s, e) => s + e.amount, 0))}</span>
+                  <span className="text-xs text-slate-400">{formatCurrency(dayNet)}</span>
                 </div>
                 <div className="flex flex-col gap-1.5">
                   {expenses.map((expense) => {
+                    const isReceived = expense.type === "received";
                     const pct = trip.totalSpent > 0 ? (expense.amount / trip.totalSpent) * 100 : 0;
                     return (
-                      <div key={expense.id} className="group bg-white border border-slate-100 rounded-xl px-4 py-3 hover:border-slate-200 transition-colors">
+                      <div
+                        key={expense.id}
+                        className={`group bg-white border rounded-xl px-4 py-3 hover:border-slate-200 transition-colors ${isReceived ? "border-emerald-100 bg-emerald-50/30" : "border-slate-100"}`}
+                      >
                         <div className="flex items-center gap-3">
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-slate-800 truncate">{expense.label}</p>
+                            <div className="flex items-center gap-1.5">
+                              {isReceived && <ArrowDownLeft className="w-3 h-3 text-emerald-500 shrink-0" />}
+                              <p className={`text-sm font-medium truncate ${isReceived ? "text-emerald-700" : "text-slate-800"}`}>{expense.label}</p>
+                            </div>
                             {expense.note && <p className="text-xs text-slate-400 truncate">{expense.note}</p>}
                           </div>
-                          <span className="text-sm font-semibold text-slate-700 shrink-0">{formatCurrency(expense.amount)}</span>
-                          <span className="text-xs text-slate-300 shrink-0 w-10 text-right">{pct.toFixed(0)}%</span>
+                          <span className={`text-sm font-semibold shrink-0 ${isReceived ? "text-emerald-600" : "text-slate-700"}`}>
+                            {isReceived ? "+" : ""}{formatCurrency(expense.amount)}
+                          </span>
+                          {!isReceived && <span className="text-xs text-slate-300 shrink-0 w-9 text-right">{pct.toFixed(0)}%</span>}
                           <div className="opacity-0 group-hover:opacity-100 flex items-center gap-1 transition-all">
                             <button onClick={() => { setEditingExpense(expense); setAddOpen(true); }} className="p-1 rounded-lg hover:bg-slate-100 text-slate-300 hover:text-slate-500">
                               <Pencil className="w-3.5 h-3.5" />
                             </button>
-                            <button onClick={() => handleDeleteExpense(expense.id, expense.amount)} className="p-1 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-400">
+                            <button onClick={() => handleDeleteExpense(expense.id)} className="p-1 rounded-lg hover:bg-red-50 text-slate-300 hover:text-red-400">
                               <Trash2 className="w-3.5 h-3.5" />
                             </button>
                           </div>
                         </div>
-                        <div className="mt-2 h-1 bg-slate-50 rounded-full overflow-hidden">
-                          <div className="h-full bg-indigo-200 rounded-full" style={{ width: `${pct}%` }} />
-                        </div>
+                        {!isReceived && (
+                          <div className="mt-2 h-1 bg-slate-50 rounded-full overflow-hidden">
+                            <div className="h-full bg-indigo-200 rounded-full" style={{ width: `${pct}%` }} />
+                          </div>
+                        )}
                       </div>
                     );
                   })}
