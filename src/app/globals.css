@@ -61,6 +61,10 @@ body {
   box-sizing: border-box;
 }
 
+button, [role="button"], a {
+  cursor: pointer;
+}
+
 html {
   scroll-behavior: smooth;
 }
