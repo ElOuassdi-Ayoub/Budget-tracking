@@ -9,8 +9,8 @@ import {
 } from "recharts";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/ui/date-picker";
 import { AddTripExpenseDialog } from "@/components/trips/AddTripExpenseDialog";
 import { formatCurrency } from "@/lib/utils";
 import type { TripDTO, TripExpenseDTO } from "@/types";
@@ -395,11 +395,11 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
           <form onSubmit={saveDates} className="flex flex-col gap-4 py-2">
             <div className="flex flex-col gap-1.5">
               <Label>From</Label>
-              <Input type="date" value={draftStart} onChange={(e) => setDraftStart(e.target.value)} />
+              <DatePicker value={draftStart} onChange={setDraftStart} placeholder="Start date" />
             </div>
             <div className="flex flex-col gap-1.5">
               <Label>To</Label>
-              <Input type="date" value={draftEnd} min={draftStart} onChange={(e) => setDraftEnd(e.target.value)} />
+              <DatePicker value={draftEnd} onChange={setDraftEnd} placeholder="End date" min={draftStart} />
             </div>
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setDatesOpen(false)}>Cancel</Button>

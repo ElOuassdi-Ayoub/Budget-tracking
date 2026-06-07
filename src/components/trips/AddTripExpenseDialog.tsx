@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { DatePicker } from "@/components/ui/date-picker";
 import { cn } from "@/lib/utils";
 import type { TripExpenseDTO } from "@/types";
 
@@ -121,7 +122,7 @@ export function AddTripExpenseDialog({ open, onOpenChange, tripId, onSaved, edit
 
           <div className="flex flex-col gap-1.5">
             <Label>Date</Label>
-            <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            <DatePicker value={date} onChange={setDate} />
           </div>
 
           <div className="flex flex-col gap-1.5">
