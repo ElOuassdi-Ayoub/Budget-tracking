@@ -73,6 +73,8 @@ export interface TripDTO {
   id: string;
   name: string;
   coverImage?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
   totalSpent: number;
   totalReceived: number;
   netCost: number;

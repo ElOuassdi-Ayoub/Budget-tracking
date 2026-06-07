@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Trip" ADD COLUMN "endDate" DATETIME;
+ALTER TABLE "Trip" ADD COLUMN "startDate" DATETIME;

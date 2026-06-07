@@ -46,6 +46,8 @@ model Trip {
   id          String        @id @default(cuid())
   name        String
   coverImage  String?
+  startDate   DateTime?
+  endDate     DateTime?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
   expenses    TripExpense[]

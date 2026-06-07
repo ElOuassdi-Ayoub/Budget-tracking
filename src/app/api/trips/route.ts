@@ -14,6 +14,8 @@ export async function GET() {
       id: t.id,
       name: t.name,
       coverImage: t.coverImage,
+      startDate: t.startDate?.toISOString() ?? null,
+      endDate: t.endDate?.toISOString() ?? null,
       totalSpent,
       totalReceived,
       netCost: totalSpent - totalReceived,
@@ -26,15 +28,24 @@ export async function GET() {
 }
 
 export async function POST(request: NextRequest) {
-  const { name, coverImage } = await request.json();
+  const { name, coverImage, startDate, endDate } = await request.json();
   if (!name?.trim()) return NextResponse.json({ error: "Name is required" }, { status: 400 });
 
-  const trip = await prisma.trip.create({ data: { name: name.trim(), coverImage: coverImage ?? null } });
+  const trip = await prisma.trip.create({
+    data: {
+      name: name.trim(),
+      coverImage: coverImage ?? null,
+      startDate: startDate ? new Date(startDate) : null,
+      endDate: endDate ? new Date(endDate) : null,
+    },
+  });
 
   return NextResponse.json({
     id: trip.id,
     name: trip.name,
     coverImage: trip.coverImage,
+    startDate: trip.startDate?.toISOString() ?? null,
+    endDate: trip.endDate?.toISOString() ?? null,
     totalSpent: 0,
     totalReceived: 0,
     netCost: 0,

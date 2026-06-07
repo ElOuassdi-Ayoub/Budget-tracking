@@ -28,7 +28,11 @@ export function TripCard({ trip }: Props) {
       </div>
 
       <div className="px-4 py-3 flex items-center justify-between">
-        <span className="text-xs text-slate-400">{trip.expenseCount} entr{trip.expenseCount !== 1 ? "ies" : "y"}</span>
+        <span className="text-xs text-slate-400">
+          {trip.startDate && trip.endDate
+            ? `${new Date(trip.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })} – ${new Date(trip.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })}`
+            : `${trip.expenseCount} entr${trip.expenseCount !== 1 ? "ies" : "y"}`}
+        </span>
         <div className="text-right">
           <span className="text-sm font-semibold text-slate-800">{formatCurrency(trip.netCost)}</span>
           {trip.totalReceived > 0 && (

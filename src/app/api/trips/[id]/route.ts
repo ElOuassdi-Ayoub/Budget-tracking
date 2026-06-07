@@ -16,6 +16,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
     id: trip.id,
     name: trip.name,
     coverImage: trip.coverImage,
+    startDate: trip.startDate?.toISOString() ?? null,
+    endDate: trip.endDate?.toISOString() ?? null,
     totalSpent,
     totalReceived,
     netCost: totalSpent - totalReceived,
@@ -36,17 +38,25 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { name, coverImage } = await request.json();
+  const { name, coverImage, startDate, endDate } = await request.json();
 
   const trip = await prisma.trip.update({
     where: { id },
     data: {
       ...(name !== undefined && { name: name.trim() }),
       ...(coverImage !== undefined && { coverImage }),
+      ...(startDate !== undefined && { startDate: startDate ? new Date(startDate) : null }),
+      ...(endDate !== undefined && { endDate: endDate ? new Date(endDate) : null }),
     },
   });
 
-  return NextResponse.json({ id: trip.id, name: trip.name, coverImage: trip.coverImage });
+  return NextResponse.json({
+    id: trip.id,
+    name: trip.name,
+    coverImage: trip.coverImage,
+    startDate: trip.startDate?.toISOString() ?? null,
+    endDate: trip.endDate?.toISOString() ?? null,
+  });
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, use, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Plus, Trash2, Pencil, TrendingUp, CalendarDays, Zap, Camera, ArrowDownLeft } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Pencil, TrendingUp, CalendarDays, Zap, Camera, ArrowDownLeft, CalendarRange } from "lucide-react";
 import { toast } from "sonner";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell,
@@ -34,7 +34,27 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
   const [addOpen, setAddOpen] = useState(false);
   const [editingExpense, setEditingExpense] = useState<TripExpenseDTO | null>(null);
   const [uploadingCover, setUploadingCover] = useState(false);
+  const [editingDates, setEditingDates] = useState(false);
+  const [draftStart, setDraftStart] = useState("");
+  const [draftEnd, setDraftEnd] = useState("");
   const coverInputRef = useRef<HTMLInputElement>(null);
+
+  async function saveDates() {
+    await fetch(`/api/trips/${id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ startDate: draftStart || null, endDate: draftEnd || null }),
+    });
+    setTrip((prev) => prev ? { ...prev, startDate: draftStart || null, endDate: draftEnd || null } : prev);
+    setEditingDates(false);
+    toast.success("Dates updated");
+  }
+
+  function openEditDates() {
+    setDraftStart(trip?.startDate?.slice(0, 10) ?? "");
+    setDraftEnd(trip?.endDate?.slice(0, 10) ?? "");
+    setEditingDates(true);
+  }
 
   useEffect(() => {
     fetch(`/api/trips/${id}`)
@@ -93,7 +113,16 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
   const stats = useMemo(() => {
     if (!trip || !trip.expenses.length) return null;
     const onlyExpenses = trip.expenses.filter((e) => e.type === "expense");
-    const days = new Set(trip.expenses.map((e) => e.date.slice(0, 10))).size;
+
+    // Use trip period if set, otherwise fall back to distinct expense days
+    let days: number;
+    if (trip.startDate && trip.endDate) {
+      const ms = new Date(trip.endDate).getTime() - new Date(trip.startDate).getTime();
+      days = Math.round(ms / (1000 * 60 * 60 * 24)) + 1;
+    } else {
+      days = new Set(trip.expenses.map((e) => e.date.slice(0, 10))).size;
+    }
+
     const biggest = onlyExpenses.length ? onlyExpenses.reduce((max, e) => e.amount > max.amount ? e : max, onlyExpenses[0]) : null;
 
     // Daily chart: expenses only
@@ -171,7 +200,24 @@ export default function TripDetailPage({ params }: { params: Promise<{ id: strin
         <input ref={coverInputRef} type="file" accept="image/*" className="hidden" onChange={handleCoverChange} />
         <div className="absolute bottom-4 left-5 right-5 flex items-end justify-between">
           <div>
-            <p className="text-white/60 text-xs mb-0.5">{trip.expenseCount} entr{trip.expenseCount !== 1 ? "ies" : "y"}</p>
+            {editingDates ? (
+              <div className="flex items-center gap-2 mb-2" onClick={(e) => e.stopPropagation()}>
+                <input type="date" value={draftStart} onChange={(e) => setDraftStart(e.target.value)} className="bg-white/20 text-white text-xs rounded-lg px-2 py-1 border border-white/30 backdrop-blur-sm" />
+                <span className="text-white/60 text-xs">→</span>
+                <input type="date" value={draftEnd} min={draftStart} onChange={(e) => setDraftEnd(e.target.value)} className="bg-white/20 text-white text-xs rounded-lg px-2 py-1 border border-white/30 backdrop-blur-sm" />
+                <button onClick={saveDates} className="bg-white text-slate-800 text-xs font-medium rounded-lg px-2 py-1 hover:bg-slate-100">Save</button>
+                <button onClick={() => setEditingDates(false)} className="text-white/60 text-xs hover:text-white">✕</button>
+              </div>
+            ) : (
+              <button onClick={openEditDates} className="flex items-center gap-1.5 mb-1.5 group/dates">
+                <CalendarRange className="w-3 h-3 text-white/50 group-hover/dates:text-white/80 transition-colors" />
+                <span className="text-white/60 text-xs group-hover/dates:text-white/80 transition-colors">
+                  {trip.startDate && trip.endDate
+                    ? `${new Date(trip.startDate).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "UTC" })} – ${new Date(trip.endDate).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" })}`
+                    : "Set trip dates"}
+                </span>
+              </button>
+            )}
             <p className="text-white text-3xl font-bold tracking-tight">{formatCurrency(trip.netCost)}</p>
             {trip.totalReceived > 0 && (
               <p className="text-white/60 text-xs mt-0.5">

@@ -16,6 +16,8 @@ interface Props {
 
 export function AddTripDialog({ open, onOpenChange, onSaved }: Props) {
   const [name, setName] = useState("");
+  const [startDate, setStartDate] = useState("");
+  const [endDate, setEndDate] = useState("");
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -29,8 +31,7 @@ export function AddTripDialog({ open, onOpenChange, onSaved }: Props) {
   }
 
   function reset() {
-    setName("");
-    setPreview(null);
+    setName(""); setStartDate(""); setEndDate(""); setPreview(null);
     if (fileRef.current) fileRef.current.value = "";
   }
 
@@ -42,7 +43,7 @@ export function AddTripDialog({ open, onOpenChange, onSaved }: Props) {
       const res = await fetch("/api/trips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, coverImage: preview }),
+        body: JSON.stringify({ name, coverImage: preview, startDate: startDate || null, endDate: endDate || null }),
       });
       if (!res.ok) {
         const err = await res.json();
@@ -74,6 +75,17 @@ export function AddTripDialog({ open, onOpenChange, onSaved }: Props) {
               placeholder="e.g. Tokyo, Paris, Road Trip…"
               autoFocus
             />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="flex flex-col gap-1.5">
+              <Label>From</Label>
+              <Input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <Label>To</Label>
+              <Input type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} />
+            </div>
           </div>
 
           <div className="flex flex-col gap-1.5">
