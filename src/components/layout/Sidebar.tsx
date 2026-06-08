@@ -17,17 +17,20 @@ export function Sidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="hidden md:flex flex-col w-56 min-h-screen bg-white border-r border-slate-100 px-3 py-6 gap-1">
-      <div className="px-3 mb-6">
-        <div className="flex items-center gap-2">
-          <div className="w-8 h-8 rounded-xl bg-indigo-100 flex items-center justify-center">
-            <span className="text-lg">💰</span>
-          </div>
-          <span className="font-semibold text-slate-800 text-sm">Budget</span>
-        </div>
+    <aside className="hidden md:flex flex-col w-60 min-h-screen bg-white border-r border-slate-100 px-4 py-6">
+      {/* Logo */}
+      <div className="flex items-center gap-3 px-2 mb-8">
+        <span className="text-2xl leading-none">💰</span>
+        <span className="font-bold text-slate-900 text-base tracking-tight">Budget</span>
       </div>
 
-      <nav className="flex flex-col gap-0.5">
+      {/* Section label */}
+      <p className="text-[10px] font-semibold uppercase tracking-widest text-slate-400 px-2 mb-2">
+        Menu
+      </p>
+
+      {/* Nav */}
+      <nav className="flex flex-col gap-1 flex-1">
         {navItems.map(({ href, label, icon: Icon }) => {
           const active = pathname === href || pathname.startsWith(href + "/");
           return (
@@ -35,18 +38,26 @@ export function Sidebar() {
               key={href}
               href={href}
               className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
+                "group flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-all",
                 active
-                  ? "bg-indigo-50 text-indigo-700"
-                  : "text-slate-600 hover:text-slate-800 hover:bg-slate-50"
+                  ? "bg-indigo-50 text-indigo-700 font-semibold"
+                  : "text-slate-500 hover:text-slate-800 hover:bg-slate-50 font-medium"
               )}
             >
-              <Icon className="w-4 h-4 shrink-0" />
+              <span className={cn(
+                "flex items-center justify-center w-8 h-8 rounded-xl transition-all shrink-0",
+                active
+                  ? "bg-indigo-600 shadow-md shadow-indigo-200/60"
+                  : "bg-slate-100 group-hover:bg-slate-200"
+              )}>
+                <Icon className={cn("w-4 h-4", active ? "text-white" : "text-slate-500 group-hover:text-slate-700")} />
+              </span>
               {label}
             </Link>
           );
         })}
       </nav>
+
     </aside>
   );
 }
