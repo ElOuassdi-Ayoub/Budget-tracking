@@ -20,7 +20,7 @@ export function Sidebar() {
     <aside className="hidden md:flex flex-col w-60 min-h-screen bg-white border-r border-slate-100 px-4 py-6">
       {/* Logo */}
       <div className="flex items-center gap-3 px-2 mb-8">
-        <span className="text-2xl leading-none">💰</span>
+        <span className="text-lg leading-none">💰</span>
         <span className="font-bold text-slate-900 text-base tracking-tight">Budget</span>
       </div>
 
