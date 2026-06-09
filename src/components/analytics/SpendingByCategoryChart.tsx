@@ -39,7 +39,7 @@ export function SpendingByCategoryChart({ data }: Props) {
 
   return (
     <ResponsiveContainer width="100%" height={220}>
-      <AreaChart data={data} margin={{ top: 10, right: 10, bottom: 0, left: 10 }}>
+      <AreaChart data={data} margin={{ top: 10, right: 10, bottom: 16, left: 10 }}>
         <defs>
           <linearGradient id="netGradient" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="#A8D5BA" stopOpacity={0.5} />
@@ -51,7 +51,7 @@ export function SpendingByCategoryChart({ data }: Props) {
           </linearGradient>
         </defs>
         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
-        <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} />
+        <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickMargin={10} />
         <YAxis
           tick={{ fontSize: 11, fill: "#94a3b8" }}
           axisLine={false}
