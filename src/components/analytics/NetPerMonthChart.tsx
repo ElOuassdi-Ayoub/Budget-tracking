@@ -13,8 +13,8 @@ interface Props {
 export function NetPerMonthChart({ data }: Props) {
   if (!data.length) return <EmptyState />;
   return (
-    <ResponsiveContainer width="100%" height={240}>
-      <ComposedChart data={data} margin={{ top: 5, right: 10, bottom: 16, left: 10 }}>
+    <ResponsiveContainer width="100%" height={270}>
+      <ComposedChart data={data} margin={{ top: 5, right: 10, bottom: 5, left: 10 }}>
         <CartesianGrid strokeDasharray="3 3" stroke="#f1f5f9" />
         <XAxis dataKey="month" tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickMargin={10} />
         <YAxis tick={{ fontSize: 11, fill: "#94a3b8" }} axisLine={false} tickLine={false} tickFormatter={(v) => `$${(v/1000).toFixed(0)}k`} />

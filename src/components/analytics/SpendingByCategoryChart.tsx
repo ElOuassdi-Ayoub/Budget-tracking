@@ -38,8 +38,8 @@ export function SpendingByCategoryChart({ data }: Props) {
   const hasNegative = data.some((d) => d.net < 0);
 
   return (
-    <ResponsiveContainer width="100%" height={220}>
-      <AreaChart data={data} margin={{ top: 10, right: 10, bottom: 16, left: 10 }}>
+    <ResponsiveContainer width="100%" height={250}>
+      <AreaChart data={data} margin={{ top: 10, right: 10, bottom: 5, left: 10 }}>
         <defs>
           <linearGradient id="netGradient" x1="0" y1="0" x2="0" y2="1">
             <stop offset="5%" stopColor="#A8D5BA" stopOpacity={0.5} />
