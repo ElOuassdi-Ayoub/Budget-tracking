@@ -4,8 +4,8 @@ import { subMonths, startOfMonth } from "date-fns";
 import type { AnalyticsPayload } from "@/types";
 
 function getMonthRange(range: string): { startYear: number; startMonth: number } {
-  if (range === "all") return { startYear: 2000, startMonth: 1 };
-  const months = range === "3m" ? 3 : range === "6m" ? 6 : 12;
+  const monthsMap: Record<string, number> = { "3m": 3, "6m": 6, "12m": 12, "3y": 36, "5y": 60 };
+  const months = monthsMap[range] ?? 6;
   const d = startOfMonth(subMonths(new Date(), months - 1));
   return { startYear: d.getFullYear(), startMonth: d.getMonth() + 1 };
 }

@@ -2,7 +2,8 @@ export const TIME_FILTERS = [
   { label: "3 Months", value: "3m" },
   { label: "6 Months", value: "6m" },
   { label: "12 Months", value: "12m" },
-  { label: "All Time", value: "all" },
+  { label: "3 Years", value: "3y" },
+  { label: "5 Years", value: "5y" },
 ] as const;
 
 export type TimeFilter = (typeof TIME_FILTERS)[number]["value"];
